@@ -2,7 +2,7 @@
 import * as intentRunner from "../../background/intentRunner.js";
 import English from "../../language/langs/english.js";
 import * as browserUtil from "../../browserUtil.js";
-import { sendMessage } from "../../background/communicate.js";
+import { sendMessage } from "../../communicate.js";
 
 const MAX_ZOOM = 3;
 const MIN_ZOOM = 0.3;
