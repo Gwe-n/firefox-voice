@@ -13,6 +13,7 @@ import { sendMessage } from "../communicate.js";
 
 log.startTiming("popup opened");
 
+const SURVEY_CLICK_LIMIT = 1000 * 60 * 60 * 24 * 14; // Wait 14 days until showing survey link again
 const { useState, useEffect } = React;
 const popupContainer = document.getElementById("popup-container");
 let isInitialized = false;
@@ -44,6 +45,24 @@ const ZERO_VOLUME_LIMIT = 8000;
 
 // FIXME: this can be removed eventually (after 2020-08-01), we're just clearing an unused storage:
 browser.storage.local.remove("hasHadSuccessfulUtterance");
+
+function calculateShowSurvey() {
+  let lastClicked = localStorage.getItem("showSurveyClicked") || 0;
+  if (lastClicked) {
+    lastClicked = parseInt(lastClicked, 10);
+  }
+  if (Date.now() - lastClicked < SURVEY_CLICK_LIMIT) {
+    return false;
+  }
+  // 10% of the time show the survey link
+  return Math.random() < 0.1;
+}
+
+const showSurvey = calculateShowSurvey();
+
+function onClickSurvey() {
+  localStorage.setItem("showSurveyClicked", String(Date.now()));
+}
 
 export const PopupController = function() {
   log.timing("PopupController called");
@@ -300,6 +319,11 @@ export const PopupController = function() {
         }
         return Promise.resolve(lastAudio);
       }
+      case "triggerPopupWithMessage": {
+        setPopupView("success");
+        setTranscript(message.message);
+        return Promise.resolve(true);
+      }
       default:
         break;
     }
@@ -503,7 +527,6 @@ export const PopupController = function() {
       if (message.card.speech) {
         speak(message.card.speech);
       }
-      log.info(message.card);
       setMinPopupSize(message.card.width);
     } else {
       setCardImage(null);
@@ -550,6 +573,11 @@ export const PopupController = function() {
     closePopupId = setTimeout(() => {
       window.close();
     }, ms);
+  };
+
+  const cancelClosePopup = () => {
+    clearTimeout(closePopupId);
+    closePopupId = undefined;
   };
 
   const addListeners = () => {
@@ -749,6 +777,7 @@ export const PopupController = function() {
       sendFeedback(feedback);
     } else if (feedback.rating === -1 && feedback.feedback === null) {
       // Negative feedback makes us ask for more info
+      cancelClosePopup();
       setPopupView("feedback");
     } else if (feedback.rating === -1) {
       setPopupView("feedbackThanks");
@@ -788,6 +817,8 @@ export const PopupController = function() {
       showZeroVolumeError={showZeroVolumeError}
       userSettings={{ ...userSettings }}
       updateUserSettings={updateUserSettings}
+      showSurvey={showSurvey}
+      onClickSurvey={onClickSurvey}
     />
   );
   log.timing("PopupController finished");

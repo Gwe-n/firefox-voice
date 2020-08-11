@@ -35,6 +35,8 @@ export const Popup = ({
   showZeroVolumeError,
   userSettings,
   updateUserSettings,
+  showSurvey,
+  onClickSurvey,
 }) => {
   const [inputValue, setInputValue] = useState(null);
   const [showScroll, setShowScroll] = useState(false);
@@ -133,6 +135,8 @@ export const Popup = ({
       <PopupFooter
         currentView={currentView}
         showSettings={showSettings}
+        showSurvey={showSurvey}
+        onClickSurvey={onClickSurvey}
         timerInMS={timerInMS}
       />
       {timerInMS > 0 ? (
@@ -146,6 +150,7 @@ export const Popup = ({
         followupText={followupText}
         renderFollowup={renderFollowup}
         currentView={currentView}
+        onSubmitFeedback={onSubmitFeedback}
       />
     </div>
   );
@@ -172,7 +177,7 @@ const PopupHeader = ({ currentView, transcript, lastIntent }) => {
         return (
           <React.Fragment>
             <p>{lastIntentTime(lastIntent)} ago you said</p>
-            <p className="utterance">{lastIntent.utterance}</p>
+            <p className="utterance">{lastIntent && lastIntent.utterance}</p>
           </React.Fragment>
         );
       case "feedbackThanks":
@@ -381,7 +386,12 @@ const FallbackContent = ({ displayText, errorMessage, onSubmitFeedback }) => {
   );
 };
 
-const FollowupContainer = ({ followupText, renderFollowup, currentView }) => {
+const FollowupContainer = ({
+  followupText,
+  renderFollowup,
+  currentView,
+  onSubmitFeedback,
+}) => {
   if (
     currentView === "listening" ||
     currentView === "waiting" ||
@@ -399,7 +409,7 @@ const FollowupContainer = ({ followupText, renderFollowup, currentView }) => {
   }
   return (
     <div id="followup-container">
-      <IntentFeedback />
+      <IntentFeedback onSubmitFeedback={onSubmitFeedback} />
       <FollowUpWrapper
         heading={heading}
         subheading={subheading}
@@ -467,7 +477,12 @@ const FeedbackThanks = () => {
   );
 };
 
-const PopupFooter = ({ currentView, showSettings }) => {
+const PopupFooter = ({
+  currentView,
+  showSettings,
+  showSurvey,
+  onClickSurvey,
+}) => {
   if (
     currentView === "searchResults" ||
     currentView === "feedback" ||
@@ -492,16 +507,39 @@ const PopupFooter = ({ currentView, showSettings }) => {
         </svg>
       </button>
       <div id="moz-voice-privacy">
-        <a
-          href="https://firefox-voice-feedback.herokuapp.com/"
-          target="_blank"
-          rel="noopener"
-        >
-          Feedback?
-        </a>
+        {showSurvey ? (
+          <SurveyLink onClickSurvey={onClickSurvey} />
+        ) : (
+          <FeedbackLink />
+        )}
       </div>
       <div></div>
     </div>
+  );
+};
+
+const FeedbackLink = () => {
+  return (
+    <a
+      href="https://firefox-voice-feedback.herokuapp.com/"
+      target="_blank"
+      rel="noopener"
+    >
+      Feedback?
+    </a>
+  );
+};
+
+const SurveyLink = ({ onClickSurvey }) => {
+  return (
+    <a
+      href="https://qsurvey.mozilla.com/s3/voice-feedback"
+      target="_blank"
+      rel="noopener"
+      onClick={onClickSurvey}
+    >
+      Take a survey?
+    </a>
   );
 };
 
@@ -711,10 +749,15 @@ const IntentFeedback = ({ eduText, onSubmitFeedback }) => {
 
 const lastIntentTime = lastIntent => {
   let ago;
-  const minutesAgo = Math.max(
-    1,
-    Math.round((Date.now() - lastIntent.timestamp) / 60000)
-  );
+  let minutesAgo;
+  if (!lastIntent) {
+    minutesAgo = 1;
+  } else {
+    minutesAgo = Math.max(
+      1,
+      Math.round((Date.now() - lastIntent.timestamp) / 60000)
+    );
+  }
   if (minutesAgo > 60) {
     const hoursAgo = Math.round(minutesAgo / 60);
     const plural = hoursAgo === 1 ? "" : "s";

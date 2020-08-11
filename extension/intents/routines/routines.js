@@ -3,8 +3,13 @@
 import * as intentRunner from "../../background/intentRunner.js";
 import * as pageMetadata from "../../background/pageMetadata.js";
 import * as browserUtil from "../../browserUtil.js";
-import { RoutineExecutor, pausedRoutineExecutor } from "./routineExecutor.js";
+import {
+  RoutineExecutor,
+  pausedRoutineExecutor,
+  currentRoutineExecutor,
+} from "./routineExecutor.js";
 import English from "../../language/langs/english.js";
+import { convertToMs } from "../../util.js";
 
 intentRunner.registerIntent({
   name: "routines.name",
@@ -111,13 +116,19 @@ intentRunner.registerIntent({
       exc.displayMessage = "Command not available.";
       throw exc;
     }
-    browser.runtime.sendMessage({
-      type: "presentMessage",
-      message:
-        context.slots.message ||
-        `Routine "${context.routineExecutor.routineName}" was paused.`,
-    });
-    context.routineExecutor.pauseRoutine();
+    if (context.slots.time) {
+      const ms = convertToMs(context.slots.time);
+      context.routineExecutor.pauseRoutineForTime(ms, context.slots.message);
+    } else {
+      browser.runtime.sendMessage({
+        type: "presentMessage",
+        message:
+          context.slots.message ||
+          `Routine "${context.routineExecutor.routineName}" was paused.`,
+      });
+
+      context.routineExecutor.pauseRoutine();
+    }
   },
 });
 
@@ -219,6 +230,25 @@ intentRunner.registerIntent({
 intentRunner.registerIntent({
   name: "routines.endForLoop",
   async run(context) {
+    if (context.routineExecutor === undefined) {
+      const exc = new Error("Command not available.");
+      exc.displayMessage = "Command not available.";
+      throw exc;
+    }
+
     context.routineExecutor.endLoop();
+  },
+});
+
+intentRunner.registerIntent({
+  name: "routines.stop",
+  async run() {
+    const routineExecutor = currentRoutineExecutor || pausedRoutineExecutor;
+    if (routineExecutor === null) {
+      const exc = new Error("No routine executing.");
+      exc.displayMessage = "No routine executing.";
+      throw exc;
+    }
+    routineExecutor.stop();
   },
 });
